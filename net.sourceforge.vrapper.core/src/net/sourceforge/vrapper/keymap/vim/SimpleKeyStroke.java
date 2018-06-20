@@ -91,10 +91,8 @@ public class SimpleKeyStroke implements KeyStroke {
         return result;
     }
 
-    @Override
-    public String toString() {
-        // this is mainly for debugging
-        String key = specialKey == null ? Character.toString(character) : specialKey.toString();
+    public String getKeyString() {
+    	String key = specialKey == null ? Character.toString(character) : specialKey.toString();
         EnumSet<Modifier> modifiers = EnumSet.copyOf(this.modifiers);
         modifiers.remove(Modifier.SHIFT);
         if ((specialKey != null || character == ' ') && withShiftKey()) {
@@ -103,7 +101,13 @@ public class SimpleKeyStroke implements KeyStroke {
         for (Modifier modifier : modifiers) {
             key = modifier.getShortId() + key;
         }
-        return "Key(" + key + ")";
+        return key;
+    }
+    
+    @Override
+    public String toString() {
+        // this is mainly for debugging
+        return "Key(" + getKeyString() + ")";
     }
 
     @Override

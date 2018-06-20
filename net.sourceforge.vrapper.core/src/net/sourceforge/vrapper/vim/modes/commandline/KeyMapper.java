@@ -5,16 +5,24 @@ import static net.sourceforge.vrapper.keymap.vim.ConstructorWrappers.parseKeyStr
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Queue;
 
+import net.sourceforge.vrapper.keymap.HashMapState;
 import net.sourceforge.vrapper.keymap.KeyMap;
 import net.sourceforge.vrapper.keymap.KeyStroke;
+import net.sourceforge.vrapper.keymap.Remapping;
 import net.sourceforge.vrapper.keymap.SimpleRemapping;
 import net.sourceforge.vrapper.keymap.SpecialKey;
+import net.sourceforge.vrapper.keymap.State;
+import net.sourceforge.vrapper.keymap.Transition;
 import net.sourceforge.vrapper.keymap.vim.ConstructorWrappers;
 import net.sourceforge.vrapper.keymap.vim.SimpleKeyStroke;
 import net.sourceforge.vrapper.vim.EditorAdaptor;
 import net.sourceforge.vrapper.vim.Options;
+import net.sourceforge.vrapper.vim.modes.AbstractVisualMode;
+import net.sourceforge.vrapper.vim.modes.KeyMapResolver;
+import net.sourceforge.vrapper.vim.modes.NormalMode;
 
 public abstract class KeyMapper implements Evaluator {
 
@@ -65,10 +73,84 @@ public abstract class KeyMapper implements Evaluator {
                     map.addMapping( lhsKeyStrokes, new SimpleRemapping(rhsKeyStrokes, useRecursive));
                 }
             }
+            // print all mappings
+            if("".equals(rhs)) {
+            	StringBuilder sb = new StringBuilder();
+            	// header
+            	sb.append("mode key mapping");
+            	
+            	// global mapping
+            	for(Entry<KeyStroke,KeyStroke> key : KeyMap.GLOBAL_MAP.entrySet()) {
+            		sb.append("    " + toPrettyString(key.getKey()) + "    " + toPrettyString(key.getValue()) + "\n");
+            	}
+            	
+            	// iterate over visual, normal, operator, ...
+            	for (String name : keymaps) {
+                    KeyMap map = vim.getKeyMapProvider().getKeyMap(name);
+                    String mapName = name;
+                    if(name.equals(AbstractVisualMode.KEYMAP_NAME)) {
+                    	mapName = "v";
+                    } else if(name.equals(NormalMode.KEYMAP_NAME)) {
+                    	mapName = "n";
+                    } else if(name.equals(KeyMapResolver.OMAP_NAME)) {
+                    	mapName = "o";
+                    }
+                
+                	printMapping(map, sb, mapName + "   ");
+                }
+            	// TODO: visualize
+            	System.err.println(sb);
+            }
+            
             return null;
         }
+        
+        /** Print all the mappings of KeyMap */
+        protected void printMapping(KeyMap map, StringBuilder sb, String prefix) {
+        	for(KeyStroke key : map.supportedKeys()) {
+        		Transition<Remapping> t = map.press(key);
+            	State<Remapping> s = t.getNextState();
+            	if(s != null && s instanceof HashMapState<?>) {
+            		HashMapState<Remapping> submap = (HashMapState<Remapping>)s;
+            		printMapping(submap, sb, prefix + toPrettyString(key));
+            	}
+            	sb.append(prefix + toPrettyString(key) + "    " + toPrettyString(t.getValue()) + "\n");
+            }
+        }
+        
+        /** Print all the sub-mappings */
+        private void printMapping(HashMapState<Remapping> map,  StringBuilder sb, String prefix) {
+        	for(KeyStroke subkey : map.supportedKeys()) {		
+	        	Transition<Remapping> t = map.press(subkey);
+	        	State<Remapping> s = t.getNextState();
+	        	if(s != null && s instanceof HashMapState<?>) {
+	        		HashMapState<Remapping> submap = (HashMapState<Remapping>)s;
+	        		printMapping(submap, sb, prefix + toPrettyString(subkey));
+	        	}
+	        	sb.append(prefix + toPrettyString(subkey) + "    " + toPrettyString(t.getValue()) + "\n");
+        	}
+		}
+        
+        /** Helper function for nicer output */
+        private String toPrettyString(Object o) {
+        	if(o instanceof SimpleKeyStroke) {
+        		String k = "" + ((SimpleKeyStroke) o).getKeyString();
+        		return k.length() == 1 ? k : "<" + k + ">";
+        	}
+        	else if(o instanceof SimpleRemapping) {
+        		StringBuilder sb = new StringBuilder();
+        		for(KeyStroke key : ((SimpleRemapping) o).getKeyStrokes()) {
+        			sb.append(toPrettyString(key));
+        		}
+        		return sb.toString();
+        	}
+        	else {
+        		System.out.println("don't know how to treat " + o.getClass());
+        	}
+        	return "" + o;
+        }
 
-        protected static Iterable<KeyStroke> replaceLeader(Iterable<KeyStroke> inputKeys,
+		protected static Iterable<KeyStroke> replaceLeader(Iterable<KeyStroke> inputKeys,
                 Collection<KeyStroke> leaderKeys) {
 
             // No use checking for <Leader> when 'mapleader' is empty. This behavior mimicks Vim:

@@ -2,6 +2,7 @@ package net.sourceforge.vrapper.keymap;
 
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Set;
 
 import net.sourceforge.vrapper.keymap.vim.ConstructorWrappers;
 
@@ -73,6 +74,10 @@ public class KeyMap {
 
     public String toString() {
         return "KeyMap[" + mapid + "]";
+    }
+    
+    public Set<KeyStroke> supportedKeys() {
+    	return root.map.keySet();
     }
 
     private static class KeyMapState extends HashMapState<Remapping> {
